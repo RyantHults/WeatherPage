@@ -2,7 +2,7 @@
 
 <html class="" lang="en">
     <head>
-        <title>Yet Another Quote Machine</title>
+        <title>Weather Pane</title>
         <meta charset="utf-8">
         <link rel="icon" type="image/png" href="assets/img/favicon.png">
         <meta name="viewport" content="width=device-width, height=device-height initial-scale=1">
@@ -11,42 +11,294 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script><link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> 
         <link href="https://use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet"> 
         <meta name="author" content="Ryan Hults">
         <link rel="author" href="https://ryanthults.github.io" alt="https://plus.google.com/u/2/108203311083664618233">
         <script>
             (function() {
+                var jsonStore = {};
                 $(document).ready(function() {
-                    
+                    var location = "";
+                    var weather = "";
+                    var weatherIcon ="";
+                    var currentTemp = "";
+                    var precipitationChance = "";
+                    var icons = [
+                        { "clear-day": "assets/img/sun.svg", "clear-night": "assets/img/moon.svg", "rain" : "assets/img/rain.svg", "snow" : "assets/img/snow.svg", "sleet" : "assets/img/snow.svg", "wind" : "assets/img/wind.svg", "fog" : "assets/img/fog.svg", "cloudy" : "assets/img/cloud.svg", "partly-cloudy-day" : "assets/img/sun-cloud.svg", "partly-cloudy-night" : "assets/img/moon-cloud.svg"}
+                    ];
+
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(function(position) {
+                            location = position.coords.latitude+","+position.coords.longitude;
+                            darkSkyAPI(location);
+                        });
+                    }
+
+                    $(document).on('click', "#more-btn", function(){   
+                        detailBuilder();
+                    });
+
+                    $(document).on('click', "#alert-btn", function(){   
+                        alertBuilder();
+                    });
+
+                     $(document).on('click', "#temperature-btn", function(){   
+                        if($("#temperature-btn").text() === "F") {
+                            var celc = Math.round((jsonStore.currently.temperature -32) * (5/9));
+
+                            $("#currentTemp").html('').append(celc);
+                            $("#temperature-btn").text("C");
+                        } else if($("#temperature-btn").text() === "C") {
+                            $("#currentTemp").html('').append(Math.round(jsonStore.currently.temperature));
+                            $("#temperature-btn").text("F");
+                        }
+                    });
+
+
+
+                    function getValueByKey(key, data) {
+                        var i, len = data.length;
+                        
+                        for (i = 0; i < len; i++) {
+                            if (data[i] && data[i].hasOwnProperty(key)) {
+                                return data[i][key];
+                            }
+                        }
+                        
+                        return -1;
+                    }
+
+                    function weatherBG() {
+                        var backgroundList = [
+                            { "clear-day": "day-bg", "clear-night": "night-bg", "rain" : "rain-bg", "snow" : "snow-bg", "sleet" : "snow-bg", "wind" : "wind-bg", "fog" : "fog-bg", "cloudy" : "cloudy-bg", "partly-cloudy" : "cloudy-bg", "partly-cloudy-day" : "cloudy-bg", "partly-cloudy-night" : "cloudy-night-bg"}
+                        ];
+                        
+                        $("#bg").addClass(getValueByKey(jsonStore.currently.icon,backgroundList));
+                    }
+
+                    function htmlIndex(index) {
+                        var currentWeather = jsonStore.currently.summary;
+                        var currentIcon = jsonStore.currently.icon;
+                        var currentTemp = Math.round(jsonStore.currently.temperature);
+                        var precipitationChance = jsonStore.currently.precipProbability;
+                        var humidity = jsonStore.currently.humidity;
+                        var windspeed = Math.round(jsonStore.currently.windSpeed);
+                        var uvIndex = jsonStore.currently.uvIndex;
+                        var currentVisibility = jsonStore.currently.visibility;
+                        var alertNum = 0;
+
+                        if (jsonStore.alerts) {
+                            alertNum = Object.keys(jsonStore.alerts).length;
+                        }
+
+                        var weather = '<div class="weatherText">The weather for your area is <span class="'+currentIcon+'"><img class="img-fluid" id="mainWeatherIcon" src="'+getValueByKey(currentIcon,icons)+' "/>'+currentWeather+'</span><span> with a temperature of </span><span id="currentTemp">'+currentTemp+'</span><span>°<div class="btn btn-link" id="temperature-btn" type="button">F</div> and a </span><span class="precipChance">'+precipitationChance*100+'</span><span>% chance of precipitation.</span></div>';
+                        var details = '<div class="detailText">Current conditions: '+humidity*100+'% humidity, '+windspeed+'mph winds, UV Index: '+uvIndex+', visibility: '+currentVisibility+' miles. </div>';
+
+                        var more = '<div class="btn btn-link text-btn" id="more-btn" type="button">Details</div>';
+                        var alertsButton = '<div class="btn btn-link text-btn" id="alert-btn" type="button">'+alertNum+' Alerts</div>';
+                        var alerts = '';
+                        
+
+                        var html = [
+                            {"weather":weather, "more":more, "alertsButton":alertsButton, "details":details }
+                        ]
+
+                        return getValueByKey(index, html);
+                    }
+
+                    //creates html for weather when given a link, title, and content
+                    function mainWeatherBuilder() {
+                        $("#weatherApp").html("");
+                        $("#weatherApp").append(htmlIndex("weather"));
+                        $("#weatherApp").append(htmlIndex("more"));
+                        if (jsonStore.alerts) {
+                            $("#weatherApp").append(htmlIndex("alertsButton"));
+                        }
+                    }
+
+                    function detailBuilder() {
+
+                        $("#more-btn").remove();
+                        $("#alert-btn").remove();
+                        $("#weatherApp").append(htmlIndex("details"));
+                        if (jsonStore.alerts) {
+                            $("#weatherApp").append(htmlIndex("alertsButton"));
+                        }
+                    }
+
+                    function alertBuilder() {
+                        $("#more-btn").remove();
+                        $("#alert-btn").remove();
+                        if (jsonStore.alerts) {
+                            $("#weatherApp").append(htmlIndex("alertsButton"));
+                        }
+                    }
+
+                    function darkSkyAPI(location) {
+                        $.getJSON("https://api.darksky.net/forecast/832f336c9fdbfcadef22b740f5b05a23/"+location+"?lang=en&exclude=[minutely,hourly,daily,flags]&callback=?", function(a) {
+                            jsonStore = a;
+                            weatherBG();
+                            mainWeatherBuilder();
+                        });
+                    }
                 });
             })(jQuery);
         </script>
         <style>
+            body {
+                font-family: 'Montserrat', sans-serif;
+            }
             /* Overrides */
             .container-fluid {
                 height: 100vh;
                 width: 100vw;
+                padding: 0;
                 margin: 0 !important;
+                background: #555;
+                overflow: hidden;
             }
 
-            /* main CSS */
-            #app {
-               
-            }
-
-            #attribution {
-                margin-top: 20px;
+            a {
                 color: white;
             }
+
+            #bg {
+                content: " ";
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+                background-size: cover;
+                width: 100vw;
+                height: 100vh;
+                padding: 0;
+                margin: 0;
+                position: absolute;
+                filter: blur(10px);
+            }
+            #overlay {
+                content: " ";
+                background-color: #555;
+                width: 100vw;
+                height: 100vh;
+                padding: 0;
+                margin: 0;
+                position: absolute;
+                opacity: .2;
+                
+            }
+
+            .day-bg {
+                background-image: url(assets/img/day.jpg);
+            }
+
+            .night-bg {
+                background-image: url(assets/img/night.jpg);
+            }
+
+            .rain-bg {
+                background-image: url(assets/img/rain.jpg);
+            }
+
+            .snow-bg {
+                background-image: url(assets/img/snow.jpg);
+            }
+
+            .wind-bg {
+                background-image: url(assets/img/wind.jpg);
+            }
+
+            .fog-bg {
+                background-image: url(assets/img/fog.jpg);
+            }
+
+            .cloudy-bg {
+                background-image: url(assets/img/cloudy-day.jpg);
+            }
+
+            .cloudy-night-bg {
+                background-image: url(assets/img/cloudy-night.png);
+            }
+            /* main CSS */
+            #app {
+                background: #555;
+                opacity: .75;
+                border-radius: 3px;
+                top: 50px;
+            }
+            
+            .weatherText {
+                padding-right: 10px;
+                padding-left: 10px;
+                font-size: 32px;
+                color: white;
+                opacity: 1;
+                
+            }
+
+            .detailText {
+                font-size: 24px;
+                padding-right: 10px;
+                padding-left: 10px;
+                padding-bottom: 10px;
+                color: #BBB;
+                opacity: 1;
+            }
+
+            .alertText {
+                font-size: 32px;
+                color: red;
+            }
+
+            #alert-btn {
+                color: red;
+            }
+            
+            #mainWeatherIcon {
+                height: 1em;
+                padding-right: 2px;
+                margin-right: 0px;
+                padding-bottom: .25em;
+            }
+            
+            #temperature-btn {
+                padding-top: 0;
+                padding-left: 0;
+                padding-right: 1px; 
+                text-decoration-line: underline;
+                -webkit-appearance: none;
+                color: white;
+                font-size: 32px;
+            }
+
+            .text-btn {
+                font-size: 24px;
+                color: #BBB;
+                margin-left: auto;
+                margin-right: auto;
+                opacity: 1;
+            }
+
+            #footer {
+                color: white;
+                padding: 0;
+                margin: 0;
+                top: 100px;
+                opacity: 1;
+            }
+
+        /* End of CSS */
         </style>
     </head>
     <body>
         <div class="container-fluid">
+            <div id="bg"></div>
+            <div id="overlay"></div>
             <div class = "row">
-                <div class = "col-md-6 col-lg-4 offset-md-3 offset-lg-4 text-center" id = "app">
-                    
+                <div class = "col-md-10 col-lg-6 offset-md-1 offset-lg-3" id = "app">
+                    <div id="weatherApp"></div>   
                 </div> 
-                <div class="col-12 align-self-center text-center">
-                    <p style="">by <a href="http://ryanthults.com" target="__blank" style="">Ryan Hults</a><p/>
+                <div class="col-12 align-self-center text-center" id="footer">
+                    <p style="color: white"></a></p>
+                    <p style="color: white">Created by <a href="http://ryanthults.com" rel="noopener" style="">Ryan Hults</a> | Powered by <a href="https://darksky.net/poweredby/" rel="noopener">Dark Sky</p>
                 </div>
             </div>
         </div>
