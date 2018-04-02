@@ -121,16 +121,28 @@
                         $("#more-btn").remove();
                         $("#alert-btn").remove();
                         $("#weatherApp").append(htmlIndex("details"));
-                        if (jsonStore.alerts) {
-                            $("#weatherApp").append(htmlIndex("alertsButton"));
-                        }
+                        if ($(".alertText")[0]){
+                            //do nothing
+                        } else {
+                            if (jsonStore.alerts) {
+                                $("#weatherApp").append(htmlIndex("alertsButton"));
+                            }
+                        } 
                     }
 
                     function alertBuilder() {
                         $("#more-btn").remove();
                         $("#alert-btn").remove();
-                        if (jsonStore.alerts) {
-                            $("#weatherApp").append(htmlIndex("alertsButton"));
+                        var length = Object.keys(jsonStore.alerts).length;
+                        var tempHTML = "";
+                        for(var i = 0; i < length; i++) {
+                            var tempHTML = '<div class="alertTitle">#'+(i+1)+': '+jsonStore.alerts[i].title+'</div><div class="alertText">Description: '+jsonStore.alerts[i].description+'</div>';
+                            $("#weatherApp").append(tempHTML);
+                        }
+                        if ($(".detailText")[0]){
+                            //do nothing
+                        } else {
+                            $("#weatherApp").append(htmlIndex("more"));
                         }
                     }
 
@@ -243,8 +255,19 @@
                 opacity: 1;
             }
 
+            .alertTitle {
+                padding-right: 10px;
+                padding-left: 10px;
+                padding-bottom: 10px;
+                font-size: 24px;
+                color: red;
+            }
+
             .alertText {
-                font-size: 32px;
+                padding-right: 10px;
+                padding-left: 10px;
+                padding-bottom: 10px;
+                font-size: 20px;
                 color: red;
             }
 
